@@ -1,4 +1,4 @@
-// Dashboard - Atualização Automática via POST/Fetch Local (Versão Final)
+// Dashboard - Atualização Automática via Nuvem (Versão Nuvem Sem Servidor)
 (function () {
   const form = document.getElementById("manual-form");
   const empty = document.getElementById("empty-state");
@@ -56,23 +56,37 @@
     try { localStorage.setItem("last-reading", JSON.stringify(reading)); } catch (e) {}
   }
 
-  // Escuta as atualizações automáticas salvas no localStorage
-  function atualizarDaEscuta() {
-    if (Date.now() < ignorarTinkercadAte) return;
-    try {
-      const saved = localStorage.getItem("last-reading");
-      if (saved) {
-        const dados = JSON.parse(saved);
-        // Só renderiza se a hora atual for diferente do texto exibido na tela
-        if (dados._origem === "tinkercad") {
-          render(dados);
+  // 🔥 ESCUTA EM TEMPO REAL VINDA DA NUVEM (Bula o bloqueio do Firefox)
+  function conectarAoFluxoDaNuvem() {
+    // Abre uma conexão SSE (Server-Sent Events) com o servidor de mensagens
+    const eventSource = new EventSource("https://ntfy.sh/arduinoods_a3_sensores/sse");
+    
+    eventSource.onmessage = (event) => {
+      if (Date.now() < ignorarTinkercadAte) return;
+      
+      try {
+        const dadosNtfy = JSON.parse(event.data);
+        // O corpo da mensagem vem dentro do campo .message ou .attachment
+        if (dadosNtfy.message) {
+          const reading = JSON.parse(dadosNtfy.message);
+          if (reading._origem === "tinkercad") {
+            render(reading);
+          }
         }
+      } catch (e) {
+        // Ignora mensagens de controle do servidor
       }
-    } catch (e) {}
+    };
+
+    eventSource.onerror = () => {
+      eventSource.close();
+      // Tenta reconectar se a rede cair
+      setTimeout(conectarAoFluxoDaNuvem, 5000);
+    };
   }
 
-  // Verifica mudanças a cada 1 segundo
-  setInterval(atualizarDaEscuta, 1000);
+  // Inicializa a escuta online
+  conectarAoFluxoDaNuvem();
 
   // Carrega leitura anterior se existir
   try {
