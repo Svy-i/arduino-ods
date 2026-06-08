@@ -56,8 +56,10 @@
     try { localStorage.setItem("last-reading", JSON.stringify(reading)); } catch (e) {}
   }
 
+  // 🔥 ESCUTA EM TEMPO REAL VINDA DA NUVEM (Versão Corrigida para CORS)
   function conectarAoFluxoDaNuvem() {
-    const eventSource = new EventSource("https://ntfy.sh/arduinoods_a3_sensores");
+    // Adicionando /sse no final, o ntfy libera o cabeçalho CORS que o Firefox exige!
+    const eventSource = new EventSource("https://ntfy.sh/arduinoods_a3_sensores/sse");
     
     eventSource.onmessage = (event) => {
       if (Date.now() < ignorarTinkercadAte) return;
@@ -65,22 +67,24 @@
       try {
         const dadosNtfy = JSON.parse(event.data);
         
-        if (dadosNtfy.event === "message" && dadosNtfy.message) {
+        // No formato /sse, o texto enviado fica dentro do campo .message
+        if (dadosNtfy.message) {
+          // Decodifica o JSON interno que o Violentmonkey enviou
           const reading = JSON.parse(dadosNtfy.message);
           
           if (reading._origem === "tinkercad") {
-            console.log("📥 Dados recebidos da nuvem com sucesso!", reading);
+            console.log("📥 Dados recebidos com sucesso!", reading);
             render(reading);
           }
         }
       } catch (e) {
-        // Ignora mensagens de controle do servidor ntfy
+        // Ignora mensagens de controle do ntfy
       }
     };
 
     eventSource.onerror = () => {
       eventSource.close();
-      // Tenta reconectar em 4 segundos se a rede oscilar
+      // Tenta reconectar em 4 segundos se a rede cair
       setTimeout(conectarAoFluxoDaNuvem, 4000);
     };
   }
