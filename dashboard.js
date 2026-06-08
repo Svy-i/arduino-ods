@@ -56,10 +56,9 @@
     try { localStorage.setItem("last-reading", JSON.stringify(reading)); } catch (e) {}
   }
 
-  // 🔥 ESCUTA EM TEMPO REAL VINDA DA NUVEM (Versão Corrigida para CORS)
+  // 🔥 ESCUTA EM TEMPO REAL VINDA DA NUVEM (Canal Oficial: arduino-ods)
   function conectarAoFluxoDaNuvem() {
-    // Adicionamos /json no final para o servidor mandar dados puros fáceis de ler
-    const eventSource = new EventSource("https://ntfy.sh/arduinoods_a3_sensores/json");
+    const eventSource = new EventSource("https://ntfy.sh/arduino-ods/json");
     
     eventSource.onmessage = (event) => {
       if (Date.now() < ignorarTinkercadAte) return;
@@ -67,9 +66,7 @@
       try {
         const dadosNtfy = JSON.parse(event.data);
         
-        // O ntfy envelopa nossa mensagem dentro do campo .event e coloca o texto em .message
         if (dadosNtfy.event === "message" && dadosNtfy.message) {
-          // Decodifica a string JSON que o Tinkercad mandou
           const reading = JSON.parse(dadosNtfy.message);
           
           if (reading._origem === "tinkercad") {
@@ -78,21 +75,14 @@
           }
         }
       } catch (e) {
-        // Ignora mensagens vazias ou de conexão que o servidor envia para manter o canal aberto
+        // Ignora mensagens de controle do servidor ntfy
       }
     };
 
     eventSource.onerror = () => {
       eventSource.close();
-      // Se a conexão piscar, ele tenta reabrir em 3 segundos
-      setTimeout(conectarAoFluxoDaNuvem, 3000);
-    };
-  }
-
-    eventSource.onerror = () => {
-      eventSource.close();
-      // Tenta reconectar se a rede cair
-      setTimeout(conectarAoFluxoDaNuvem, 5000);
+      // Tenta reconectar em 4 segundos se a rede oscilar
+      setTimeout(conectarAoFluxoDaNuvem, 4000);
     };
   }
 
