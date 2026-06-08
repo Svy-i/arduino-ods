@@ -56,9 +56,8 @@
     try { localStorage.setItem("last-reading", JSON.stringify(reading)); } catch (e) {}
   }
 
-  // 🔥 ESCUTA EM TEMPO REAL VINDA DA NUVEM (Canal Oficial: arduino-ods)
   function conectarAoFluxoDaNuvem() {
-    const eventSource = new EventSource("https://ntfy.sh/arduino-ods/json");
+    const eventSource = new EventSource("https://ntfy.sh/arduinoods_a3_sensores");
     
     eventSource.onmessage = (event) => {
       if (Date.now() < ignorarTinkercadAte) return;
