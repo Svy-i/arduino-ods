@@ -56,35 +56,39 @@
     try { localStorage.setItem("last-reading", JSON.stringify(reading)); } catch (e) {}
   }
 
-  // 🔥 ESCUTA EM TEMPO REAL VINDA DA NUVEM (Versão Corrigida para CORS)
+  // 🔥 ESCUTA ATUALIZADA - MODO DIAGNÓSTICO
   function conectarAoFluxoDaNuvem() {
-    // Adicionando /sse no final, o ntfy libera o cabeçalho CORS que o Firefox exige!
+    // Usamos o formato /sse para conexão contínua e estável
     const eventSource = new EventSource("https://ntfy.sh/arduinoods_a3_sensores/sse");
     
+    console.log("📡 Conexão com a nuvem estabelecida. Aguardando dados...");
+
     eventSource.onmessage = (event) => {
-      if (Date.now() < ignorarTinkercadAte) return;
-      
       try {
+        // 1. Mostra no console o texto bruto que acabou de chegar do ntfy
+        console.log("📦 Texto Bruto recebido do ntfy:", event.data);
+        
         const dadosNtfy = JSON.parse(event.data);
         
-        // No formato /sse, o texto enviado fica dentro do campo .message
+        // 2. Verifica se há uma mensagem válida enviada pelo Tinkercad
         if (dadosNtfy.message) {
-          // Decodifica o JSON interno que o Violentmonkey enviou
+          // Converte o texto da mensagem de volta para o objeto JSON do nosso Arduino
           const reading = JSON.parse(dadosNtfy.message);
           
-          if (reading._origem === "tinkercad") {
-            console.log("📥 Dados recebidos com sucesso!", reading);
-            render(reading);
-          }
+          console.log("🔍 Objeto decodificado interno:", reading);
+
+          // Removemos temporariamente a trava do manual para testar direto
+          console.log("🎯 Renderizando dados na tela agora!");
+          render(reading);
         }
       } catch (e) {
-        // Ignora mensagens de controle do ntfy
+        console.warn("⚠️ Falha ao ler ou decodificar uma linha da nuvem:", e.message);
       }
     };
 
     eventSource.onerror = () => {
+      console.error("❌ Conexão caiu. Tentando reconectar...");
       eventSource.close();
-      // Tenta reconectar em 4 segundos se a rede cair
       setTimeout(conectarAoFluxoDaNuvem, 4000);
     };
   }
