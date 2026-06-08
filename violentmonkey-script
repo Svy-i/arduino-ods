@@ -1,0 +1,85 @@
+// ==UserScript==
+// @name         Ponte Tinkercad Nuvem A3 Definitiva
+// @namespace    http://projeto-a3-ods-vida-terrestre.net/
+// @version      6.0
+// @match        https://www.tinkercad.com/*
+// @grant        GM_xmlhttpRequest
+// @run-at       document-end
+// ==/UserScript==
+
+(function() {
+    'use strict';
+    console.log("🚀 Robô Caçador de Estruturas Invisíveis Ativado!");
+
+    let ultimaLinhaProcessada = "";
+
+    function processarTextoBruto(textoCompleto) {
+        if (!textoCompleto) return;
+
+        // Separa o texto por quebras de linha e limpa os espaços
+        const linhas = textoCompleto.split('\n').map(l => l.trim()).filter(Boolean);
+        if (!linhas.length) return;
+
+        // Pega a última linha gerada pelo Arduino
+        const ultimaLinha = linhas[linhas.length - 1];
+
+        if (ultimaLinha && ultimaLinha !== ultimaLinhaProcessada && ultimaLinha.startsWith("{") && ultimaLinha.endsWith("}")) {
+            ultimaLinhaProcessada = ultimaLinha;
+
+            try {
+                const dadosArduino = JSON.parse(ultimaLinha);
+                const porcentagemLuz = Math.round((dadosArduino.luz / 1023) * 100);
+
+                const payload = {
+                    luminosidade: porcentagemLuz,
+                    temperatura: Math.round(dadosArduino.temperatura * 10) / 10,
+                    umidade: parseInt(dadosArduino.umidade || 0),
+                    rega_ativa: dadosArduino.bomba === 1,
+                    _origem: "tinkercad"
+                };
+
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: "https://ntfy.sh/arduinoods_a3_sensores",
+                    headers: { "Content-Type": "application/json" },
+                    data: JSON.stringify(payload),
+                    onload: function() {
+                        console.log("📡 [SUCESSO ENVIADO!] JSON enviado para a Dashboard:", payload);
+                    }
+                });
+            } catch (e) { }
+        }
+    }
+
+    // Estratégia 1: Varredura de Tempo em ciclo rápido
+    setInterval(() => {
+        // Pega todos os elementos de texto possíveis na aba de circuitos
+        const caixasDeTexto = document.querySelectorAll('div, pre, code, span, p');
+        caixasDeTexto.forEach(el => {
+            if (el.textContent && el.textContent.includes('"luz"') && el.textContent.includes('}')) {
+                processarTextoBruto(el.textContent.trim());
+            }
+        });
+
+        // Tenta perfurar o Shadow DOM se ele existir na página
+        document.querySelectorAll('*').forEach(el => {
+            if (el.shadowRoot) {
+                const elementosOcultos = el.shadowRoot.querySelectorAll('div, pre, code, span');
+                elementosOcultos.forEach(subEl => {
+                    if (subEl.textContent && subEl.textContent.includes('"luz"')) {
+                        processarTextoBruto(subEl.textContent.trim());
+                    }
+                });
+            }
+        });
+    }, 1000);
+
+    // Estratégia 2: Interceptação Manual ao Interagir
+    window.addEventListener('click', () => {
+        // Quando você clica na tela para mexer no código, ele força uma varredura instantânea
+        const painelCodigo = document.querySelector('.code_panel') || document.body;
+        if (painelCodigo) {
+            processarTextoBruto(painelCodigo.innerText || painelCodigo.textContent);
+        }
+    });
+})();
